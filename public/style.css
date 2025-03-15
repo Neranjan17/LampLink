@@ -107,6 +107,7 @@ input::placeholder {
   color: var(--secondary_text_color);
   font-size: 1.1rem;
   opacity: 0.8;
+  letter-spacing: normal;
 }
 
 select {
@@ -170,6 +171,9 @@ button:active {
   justify-content: center;
   align-items: center;
   box-shadow: 4px 4px 100px 0 rgba(0, 0, 0, 0.25);
+}
+.login_section .left_wrapper .login_wrapper input {
+  letter-spacing: 5px;
 }
 .login_section .left_wrapper .login_wrapper h1 {
   color: var(--primary_text_color);
@@ -283,6 +287,10 @@ button:active {
   color: var(--secondary_text_color);
   font-size: 1.2rem;
   background: none;
+}
+.create_section h2 {
+  color: var(--secondary_text_color);
+  font-size: 0.8rem;
 }
 .create_section .create_btn {
   width: 30%;
@@ -524,7 +532,7 @@ button:active {
 
 
 
-@media (max-width: 750px) {
+@media (max-width: 1000px) {
   header {
     padding: 5px 10px;
   }
@@ -547,6 +555,7 @@ button:active {
     height: 70%;
     max-height: 600px;
     border-radius: 30px 30px 0 0;
+    justify-content: start;
   }
   .login_section .right_wrapper {
     display: none;
@@ -581,9 +590,12 @@ button:active {
     height: 50px;
     margin-bottom: 0;
   }
+  .create_section h2 {
+    margin-top: 30px;
+    margin-bottom: 10px;
+  }
   .create_section .create_btn {
     width: 100%;
-    margin-top: 40px;
   }
 
   .event_section {
@@ -631,9 +643,6 @@ button:active {
   }
   .event_section .left_wrapper .header_wrapper .text_wrapper h2 {
     font-size: 1.5rem;
-  }
-  .event_section .left_wrapper .middle_wrapper p {
-    font-size: 0.8rem;
   }
 
 }

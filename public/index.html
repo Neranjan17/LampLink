@@ -30,7 +30,7 @@
       <div class="left_wrapper">
         <div class="login_wrapper">
           <h1 class="signIn_header">Sign In</h1>
-          <input placeholder="Enter your ID" />
+          <input id="loginIdInput" placeholder="Enter your ID" />
           <button id="signinBtn">Sign In</button>
           <div class="divider_div">
             <hr />
@@ -66,13 +66,13 @@
     <section id="createSection" class="create_section">
       <h1>Make a New Event</h1>
       <div class="input_wrapper">
-        <input class="firstHeader_input" placeholder="First Header">
-        <input class="secondHeader_input" placeholder="Second Header">
-        <input class="password_input" placeholder="Password">
-        <input class="soundLink_input" placeholder="Sond Link (Optional)">
-        <h6 class="guestInput_header">Add a Guest</h6>
+        <input id="firstHeaderInput" class="firstHeader_input" placeholder="First Header">
+        <input id="secondHeaderInput" class="secondHeader_input" placeholder="Second Header">
+        <input id="passwordInput" class="password_input" placeholder="Password">
+        <input id="soundLinkInput" class="soundLink_input" placeholder="Sond Link (Optional)">
+        <h6 id="guestCountViewText" class="guestInput_header">Add a Guest</h6>
         <div class="nameInfo_wrapper">
-          <select name="title">
+          <select id="guestTitleSelect" name="title">
             <option value="m/s">M/s</option>
             <option value="mr">Mr.</option>
             <option value="ms">Ms.</option>
@@ -86,19 +86,20 @@
             <option value="maj">Maj.</option>
             <option value="master">Master</option>
           </select>
-          <input placeholder="Guest Name">
+          <input id="guestNameInput" placeholder="Guest Name">
         </div>
-        <input class="guestPic_input" placeholder="Guest image link">
-        <button class="addGuest_btn">No added Guesr</button>
+        <input id="guestImgLinkInput" class="guestPic_input" placeholder="Guest image link">
+        <button id="addGuestBtn" class="addGuest_btn">No added Guesr</button>
       </div>
+      <h2 id="eventIdViewText">Your Event ID is : 00000000</h2>
       <button id="createEventBtn" class="create_btn">Make Event</button>
     </section>
 
     <section id="eventSection" class="event_section">
       
       <div class="banner_wrapper">
-        <h2 id="banner_title_top">Welcome to the</h2>
-        <h1 id="banner_title_bottom">Lamp Lighting Feature</h1>
+        <h2 id="bannerTitleTop">Welcome to the</h2>
+        <h1 id="bannerTitleBottom">Lamp Lighting Feature</h1>
       </div>
 
       <div class="main_wrapper">
