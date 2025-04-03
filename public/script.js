@@ -279,7 +279,7 @@ function navigatEventSection(eventInfo) {
   
   // For non-hosts, disable host-only controls
   if (!eventInformation.isHost) {
-    startBtn.disabled = true;
+    //startBtn.disabled = true;
     backBtn.style.display = "none";
     skipBtn.style.display = "none";
   }
