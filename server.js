@@ -19,7 +19,7 @@ const db = new sqlite3.Database('./database/events.db', (err) => {
   } else {
     console.log('Connected to the SQLite database.');
     
-    // Create events table with an additional "current_guest" column
+    // Create events table with an additional "is_start" column
     db.run(`CREATE TABLE IF NOT EXISTS events (
       event_id INTEGER PRIMARY KEY,
       top_heading TEXT NOT NULL,
@@ -28,6 +28,7 @@ const db = new sqlite3.Database('./database/events.db', (err) => {
       current_guest INTEGER NOT NULL DEFAULT 0,
       sound_url TEXT NOT NULL,
       host_password TEXT NOT NULL UNIQUE,
+      is_start BOOLEAN NOT NULL DEFAULT 0,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )`, (err) => {
       if (err) {
@@ -96,8 +97,8 @@ function addEvent(eventId, firstHeader, secondHeader, password, soundUrl) {
         if (!soundUrl) {
           return reject(new Error('Sound URL is required'));
         }
-        const sql = `INSERT INTO events (event_id, top_heading, bottom_heading, host_password, sound_url, current_light, current_guest) 
-                    VALUES (?, ?, ?, ?, ?, 0, 0)`;
+        const sql = `INSERT INTO events (event_id, top_heading, bottom_heading, host_password, sound_url, current_light, current_guest, is_start) 
+                    VALUES (?, ?, ?, ?, ?, 0, 0, 0)`;
         db.run(sql, [eventId, firstHeader, secondHeader, password, soundUrl], function(err) {
           if (err) {
             if (err.message.includes('UNIQUE constraint failed: events.host_password')) {
@@ -149,7 +150,7 @@ function addGuest(eventId, guestName, guestTitle, imageUrl) {
   });
 }
 
-// Retrieve event info (includes current_light, current_guest, and guests ordered by order_num)
+// Retrieve event info (includes current_light, current_guest, is_start, and guests ordered by order_num)
 function getEventInfo(inputValue) {
   return new Promise((resolve, reject) => {
     try {
@@ -164,14 +165,14 @@ function getEventInfo(inputValue) {
         eventId = inputValue;
         isHost = false;
         query = `
-          SELECT event_id, top_heading, bottom_heading, sound_url, current_light, current_guest
+          SELECT event_id, top_heading, bottom_heading, sound_url, current_light, current_guest, is_start
           FROM events
           WHERE event_id = ?`;
         params = [eventId];
       } else if (inputValue.length === 9) {
         isHost = true;
         query = `
-          SELECT event_id, top_heading, bottom_heading, sound_url, current_light, current_guest
+          SELECT event_id, top_heading, bottom_heading, sound_url, current_light, current_guest, is_start
           FROM events
           WHERE host_password = ?`;
         params = [inputValue];
@@ -207,6 +208,7 @@ function getEventInfo(inputValue) {
             soundUrl: eventRow.sound_url,
             currentLight: eventRow.current_light,
             currentGuest: eventRow.current_guest,
+            isStart: eventRow.is_start === 1,
             guestsInfo: guestRows || []
           };
           resolve(result);
@@ -216,6 +218,30 @@ function getEventInfo(inputValue) {
       console.error('Error in getEventInfo:', error);
       reject(error);
     }
+  });
+}
+
+// Get the event state (for polling)
+function getEventState(eventId) {
+  return new Promise((resolve, reject) => {
+    if (!eventId) {
+      return reject(new Error('Event ID is required'));
+    }
+    const query = 'SELECT current_light, current_guest, is_start FROM events WHERE event_id = ?';
+    db.get(query, [eventId], (err, row) => {
+      if (err) {
+        console.error('Error getting event state:', err.message);
+        return reject(err);
+      }
+      if (!row) {
+        return reject(new Error('Event not found'));
+      }
+      resolve({
+        currentLight: row.current_light,
+        currentGuest: row.current_guest,
+        isStart: row.is_start === 1
+      });
+    });
   });
 }
 
@@ -263,6 +289,61 @@ function setCurrentLightCount(eventId, count) {
     });
   });
 }
+
+// Set event start status
+function setEventStartStatus(eventId, isStart) {
+  return new Promise((resolve, reject) => {
+    if (!eventId) {
+      return reject(new Error('Event ID is required'));
+    }
+    const startValue = isStart ? 1 : 0;
+    const query = 'UPDATE events SET is_start = ? WHERE event_id = ?';
+    db.run(query, [startValue, eventId], function(err) {
+      if (err) {
+        console.error('Error updating start status:', err.message);
+        return reject(err);
+      }
+      if (this.changes === 0) {
+        return reject(new Error('Event not found'));
+      }
+      resolve({
+        eventId: eventId,
+        isStart: isStart,
+        updated: true
+      });
+    });
+  });
+}
+
+// New endpoint to handle event start
+app.post('/api/events/:eventId/start', async (req, res) => {
+  try {
+    const eventId = req.params.eventId;
+    const { isStart } = req.body;
+    
+    if (isStart === undefined) {
+      return res.status(400).json({ error: 'isStart value is required' });
+    }
+    
+    const result = await setEventStartStatus(eventId, isStart);
+    res.json(result);
+  } catch (err) {
+    console.error('Error in event start endpoint:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// New endpoint to poll event state
+app.get('/api/events/:eventId/state', async (req, res) => {
+  try {
+    const eventId = req.params.eventId;
+    const state = await getEventState(eventId);
+    res.json(state);
+  } catch (err) {
+    console.error('Error in get event state endpoint:', err);
+    res.status(404).json({ error: err.message });
+  }
+});
 
 // New endpoint to handle guest actions: light, skip, and back
 app.post('/api/events/:eventId/action', async (req, res) => {

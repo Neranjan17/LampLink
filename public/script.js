@@ -42,7 +42,12 @@ createSection.style.display = "none";
 eventSection.style.display = "none";
 soundToggleInHeader.style.visibility = "hidden";
 
+// Polling interval (in milliseconds)
+const POLLING_INTERVAL = 2000; // Poll every 2 seconds
+let pollingIntervalId = null;
+
 webLogo.addEventListener("click", function() {
+  stopPolling();
   location.reload();
 });
 
@@ -50,6 +55,7 @@ webLogo.addEventListener("click", function() {
 // LOGIN SECTION
 // ------------------
 function navigatLoginSection() {
+  stopPolling();
   loginSection.scrollIntoView({ behavior: 'smooth' });
   loginSection.style.display = "flex";
   createSection.style.display = "none";
@@ -122,6 +128,7 @@ let guestsInfo = [];
 let eventID = 0; 
 
 async function navigatCreateSection() {
+  stopPolling();
   guestsInfo.length = 0;
   guestCountViewText.innerText = "Add a Guest";
   firstHeaderInput.value = "";
@@ -247,11 +254,19 @@ let soundOn = false;
 let isEventStart = false;
 let eventInformation;
 let guestIndex = 0; // local pointer for UI updates
+let previousLightCount = 0;
+let previousGuestIndex = 0;
+let previousStartStatus = false;
 
 function navigatEventSection(eventInfo) {
   eventInformation = eventInfo;
   // Reset guest pointer based on backend state
   guestIndex = eventInformation.currentGuest || 0;
+  previousGuestIndex = guestIndex;
+  previousLightCount = eventInformation.currentLight || 0;
+  previousStartStatus = eventInformation.isStart || false;
+  isEventStart = previousStartStatus;
+  
   backgroundAudio = new Audio(eventInformation.soundUrl);
   bannerTitleTop.innerText = eventInformation.topHeader;
   bannerTitleBottom.innerText = eventInformation.bottomHeader;
@@ -277,9 +292,20 @@ function navigatEventSection(eventInfo) {
     }
   }
   
+  // Set initial lamp state
+  setEventLampLights(previousLightCount);
+  
+  // Show or hide the overlay based on isStart value
+  if (isEventStart) {
+    startOverlayPanel.style.display = "none";
+    playSound();
+  } else {
+    startOverlayPanel.style.display = "flex";
+  }
+  
   // For non-hosts, disable host-only controls
   if (!eventInformation.isHost) {
-    //startBtn.disabled = true;
+    startBtn.disabled = true;
     backBtn.style.display = "none";
     skipBtn.style.display = "none";
   }
@@ -289,6 +315,71 @@ function navigatEventSection(eventInfo) {
   createSection.style.display = "none";
   eventSection.style.display = "flex";
   soundToggleInHeader.style.visibility = "visible";
+  
+  // Start polling for event state changes
+  startPolling();
+}
+
+// Start polling for event state changes
+function startPolling() {
+  if (pollingIntervalId) {
+    clearInterval(pollingIntervalId);
+  }
+  
+  pollingIntervalId = setInterval(async () => {
+    if (!eventInformation || !eventInformation.eventId) return;
+    
+    try {
+      const response = await fetch(`/api/events/${eventInformation.eventId}/state`);
+      if (!response.ok) {
+        console.error('Polling failed:', await response.text());
+        return;
+      }
+      
+      const stateData = await response.json();
+      
+      // Check if start status has changed
+      if (previousStartStatus !== stateData.isStart) {
+        previousStartStatus = stateData.isStart;
+        isEventStart = stateData.isStart;
+        if (isEventStart) {
+          startOverlayPanel.style.display = "none";
+          playSound();
+        } else {
+          startOverlayPanel.style.display = "flex";
+          backgroundAudio.pause();
+        }
+      }
+      
+      // Check if lamp count has changed
+      if (previousLightCount !== stateData.currentLight) {
+        previousLightCount = stateData.currentLight;
+        setEventLampLights(stateData.currentLight);
+      }
+      
+      // Check if guest index has changed
+      if (previousGuestIndex !== stateData.currentGuest) {
+        previousGuestIndex = stateData.currentGuest;
+        updateGuestUI(stateData.currentGuest);
+      }
+      
+    } catch (error) {
+      console.error('Error during polling:', error);
+    }
+  }, POLLING_INTERVAL);
+}
+
+// Stop polling when navigating away from event section
+function stopPolling() {
+  if (pollingIntervalId) {
+    clearInterval(pollingIntervalId);
+    pollingIntervalId = null;
+  }
+  
+  // If sound is playing, stop it
+  if (backgroundAudio) {
+    backgroundAudio.pause();
+  }
 }
 
 function toggleSound() {
@@ -344,6 +435,8 @@ lightBtn.addEventListener("click", async function() {
     const data = await response.json();
     setEventLampLights(data.current_light);
     updateGuestUI(data.current_guest);
+    previousLightCount = data.current_light;
+    previousGuestIndex = data.current_guest;
   } catch (err) {
     console.error(err);
   }
@@ -364,6 +457,7 @@ skipBtn.addEventListener("click", async function() {
     const data = await response.json();
     // Skip does not change the lamp image
     updateGuestUI(data.current_guest);
+    previousGuestIndex = data.current_guest;
   } catch (err) {
     console.error(err);
   }
@@ -384,17 +478,44 @@ backBtn.addEventListener("click", async function() {
     const data = await response.json();
     setEventLampLights(data.current_light);
     updateGuestUI(data.current_guest);
+    previousLightCount = data.current_light;
+    previousGuestIndex = data.current_guest;
   } catch (err) {
     console.error(err);
   }
 });
 
-startBtn.addEventListener("click", function() {
-  setEventLampLights(0);
-  startOverlayPanel.style.display = "none";
-  isEventStart = true;
-  playSound();
+startBtn.addEventListener("click", async function() {
+  try {
+    // Update isStart status in the database
+    const response = await fetch(`/api/events/${eventInformation.eventId}/start`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ isStart: true })
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json();
+      alert(errorData.error);
+      return;
+    }
+    
+    // Update local state
+    setEventLampLights(0);
+    startOverlayPanel.style.display = "none";
+    isEventStart = true;
+    previousStartStatus = true;
+    playSound();
+    
+  } catch (err) {
+    console.error('Error starting event:', err);
+  }
 });
 
 soundToggleInHeader.addEventListener("click", toggleSound);
 soundToggleInStart.addEventListener("click", toggleSound);
+
+// Clean up resources when the page is unloaded
+window.addEventListener('beforeunload', function() {
+  stopPolling();
+});
