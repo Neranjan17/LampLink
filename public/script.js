@@ -82,6 +82,9 @@ async function fetchEventInfo(inputValue) {
 }
 
 function preloadEventAssets() {
+
+  signinBtn.innerText = "Loading...";
+
   for (let i = 0; i <= 9; i++) {
     const lampImage = new Image();
     lampImage.src = `assets/OilLamp_${i}.gif`;
