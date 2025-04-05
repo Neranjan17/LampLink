@@ -1,3 +1,5 @@
+import { animateSectionTransition, animateOverlayTransition, preloadImages, setButtonLoading } from './animation-utils.js';
+
 const webLogo = document.getElementById("webLogo");
 
 // init login section elements
@@ -42,6 +44,9 @@ createSection.style.display = "none";
 eventSection.style.display = "none";
 soundToggleInHeader.style.visibility = "hidden";
 
+// Update the Add Guest button text
+addGuestBtn.innerText = "Add Guest";
+
 // Polling interval (in milliseconds)
 const POLLING_INTERVAL = 2000; // Poll every 2 seconds
 let pollingIntervalId = null;
@@ -56,10 +61,10 @@ webLogo.addEventListener("click", function() {
 // ------------------
 function navigatLoginSection() {
   stopPolling();
-  loginSection.scrollIntoView({ behavior: 'smooth' });
-  loginSection.style.display = "flex";
-  createSection.style.display = "none";
-  eventSection.style.display = "none";
+  animateSectionTransition(
+    document.querySelector('section[style*="display: flex"]'), 
+    loginSection
+  );
 }
 
 async function fetchEventInfo(inputValue) {
@@ -77,40 +82,76 @@ async function fetchEventInfo(inputValue) {
   }
 }
 
+async function preloadEventAssets(eventInfo) {
+  // Prepare images to preload
+  const imagesToPreload = [];
+  
+  // Add lamp images (0-5)
+  for (let i = 0; i <= 5; i++) {
+    imagesToPreload.push(`assets/OilLamp_${i}.gif`);
+  }
+  
+  // Add guest images if available
+  if (eventInfo.guestsInfo && eventInfo.guestsInfo.length > 0) {
+    eventInfo.guestsInfo.forEach(guest => {
+      if (guest.image_url) {
+        imagesToPreload.push(guest.image_url);
+      }
+    });
+  }
+  
+  // Add default guest image
+  imagesToPreload.push("assets/default_guest_pic.svg");
+  
+  return new Promise((resolve) => {
+    preloadImages(
+      imagesToPreload,
+      (progress) => {
+        // Update button text with progress if needed
+        signinBtn.innerHTML = `Loading... ${Math.round(progress)}%`;
+      },
+      () => {
+        resolve();
+      }
+    );
+  });
+}
+
 signinBtn.addEventListener("click", async function() {
   let inputId = loginIdInput.value.trim();
-  if (inputId.length == 8) {
+  
+  if (inputId.length == 8 || inputId.length == 9) {
+    // Set button to loading state
+    setButtonLoading(signinBtn, true);
+    
     try {
-      const response = await fetch(`/check-event/${inputId}`);
+      const checkEndpoint = inputId.length === 8 ? `/check-event/${inputId}` : `/check-password/${encodeURIComponent(inputId)}`;
+      const response = await fetch(checkEndpoint);
       const data = await response.json();
+      
       if(data.exists) {
-        console.log("Valid Event Id");
+        console.log(`Valid ${inputId.length === 8 ? 'Event ID' : 'Password'}`);
         const eventInfo = await fetchEventInfo(inputId);
+        
+        // Preload assets before navigating
+        await preloadEventAssets(eventInfo);
+        
+        // Reset button state
+        setButtonLoading(signinBtn, false);
+        
+        // Navigate to event section
         navigatEventSection(eventInfo);
       } else {
-        alert("Invalid Event ID !");
+        setButtonLoading(signinBtn, false);
+        alert(`Invalid ${inputId.length === 8 ? 'Event ID' : 'Event Password'}!`);
       }
     } catch (error) {
-      console.error("Error checking event ID:", error);
-      alert("Error connecting to server");
-    }
-  } else if (inputId.length == 9) {
-    try {
-      const response = await fetch(`/check-password/${encodeURIComponent(inputId)}`);
-      const data = await response.json();
-      if(data.exists) {
-        console.log("Valid Password");
-        const eventInfo = await fetchEventInfo(inputId);
-        navigatEventSection(eventInfo);
-      } else {
-        alert("Invalid Event Password !");
-      }
-    } catch (error) {
-      console.error("Error checking password:", error);
+      setButtonLoading(signinBtn, false);
+      console.error(`Error checking ${inputId.length === 8 ? 'event ID' : 'password'}:`, error);
       alert("Error connecting to server");
     }
   } else {
-    alert("Invalid Id or Password !");
+    alert("Invalid Id or Password!");
   }
 });
 
@@ -140,10 +181,11 @@ async function navigatCreateSection() {
   guestImgLinkInput.value = "";
   eventID = await generateEventID();
   eventIdViewText.innerText = "Your Event ID is : " + eventID;
-  createSection.scrollIntoView({ behavior: 'smooth' });
-  loginSection.style.display = "none";
-  createSection.style.display = "flex";
-  eventSection.style.display = "none";
+  
+  animateSectionTransition(
+    document.querySelector('section[style*="display: flex"]'), 
+    createSection
+  );
 }
 
 async function generateEventID() {
@@ -174,6 +216,10 @@ function createNewEvent() {
     soundUrl: soundLinkInput.value.trim() !== "" ? soundLinkInput.value.trim() : defaultSoundLink
   };
   const password = passwordInput.value.trim();
+  
+  // Set button to loading state
+  setButtonLoading(createEventBtn, true);
+  
   if (password !== "" && password.length == 9) {
     fetch(`/check-password/${encodeURIComponent(password)}`)
       .then(response => {
@@ -216,15 +262,18 @@ function createNewEvent() {
         const allSuccessful = responses.every(response => response.ok);
         if (!allSuccessful) throw new Error('Some guests could not be added');
         console.log('All guests added successfully');
+        setButtonLoading(createEventBtn, false);
         navigatLoginSection();
       })
       .catch(error => {
+        setButtonLoading(createEventBtn, false);
         console.error('Error in event creation process:', error);
         if (error.message !== "Password already exists") {
           alert('There was an error creating your event. Please try again.');
         }
       });
   } else {
+    setButtonLoading(createEventBtn, false);
     alert("Password is required with nine characters!");
   }
 }
@@ -233,9 +282,19 @@ addGuestBtn.addEventListener("click", function() {
   let guestTitle = guestTitleSelect.value.trim();
   let guestName = guestNameInput.value.trim();
   let guestImgLink = guestImgLinkInput.value.trim() !== "" ? guestImgLinkInput.value : defaultGuestPicLink;
+  
   if(guestTitle !== defaultGuestTitle && guestName !== "") {
     guestsInfo.push({ title: guestTitle, name: guestName, picUrl: guestImgLink });
-    guestCountViewText.innerText = "Add a Guest : " + guestsInfo.length + " Added";
+    
+    // Update guest count text with animation
+    guestCountViewText.innerText = `Guest Added: ${guestsInfo.length} Total`;
+    guestCountViewText.classList.add('guest-added-animation');
+    
+    // Remove animation class after animation completes
+    setTimeout(() => {
+      guestCountViewText.classList.remove('guest-added-animation');
+    }, 500);
+    
     guestTitleSelect.value = defaultGuestTitle;
     guestNameInput.value = "";
     guestImgLinkInput.value = "";
@@ -295,9 +354,9 @@ function navigatEventSection(eventInfo) {
   // Set initial lamp state
   setEventLampLights(previousLightCount);
   
-  // Show or hide the overlay based on isStart value
+  // Show or hide the overlay based on isStart value with animation
   if (isEventStart) {
-    startOverlayPanel.style.display = "none";
+    animateOverlayTransition(startOverlayPanel, false);
     playSound();
   } else {
     startOverlayPanel.style.display = "flex";
@@ -310,10 +369,12 @@ function navigatEventSection(eventInfo) {
     skipBtn.style.display = "none";
   }
 
-  eventSection.scrollIntoView({ behavior: 'smooth' });
-  loginSection.style.display = "none";
-  createSection.style.display = "none";
-  eventSection.style.display = "flex";
+  // Use animated transition
+  animateSectionTransition(
+    document.querySelector('section[style*="display: flex"]'), 
+    eventSection
+  );
+  
   soundToggleInHeader.style.visibility = "visible";
   
   // Start polling for event state changes
@@ -343,10 +404,10 @@ function startPolling() {
         previousStartStatus = stateData.isStart;
         isEventStart = stateData.isStart;
         if (isEventStart) {
-          startOverlayPanel.style.display = "none";
+          animateOverlayTransition(startOverlayPanel, false);
           playSound();
         } else {
-          startOverlayPanel.style.display = "flex";
+          animateOverlayTransition(startOverlayPanel, true);
           backgroundAudio.pause();
         }
       }
@@ -421,6 +482,7 @@ function updateGuestUI(index) {
 
 // Action button handlers call the new API endpoint
 lightBtn.addEventListener("click", async function() {
+  setButtonLoading(lightBtn, true);
   try {
     const response = await fetch(`/api/events/${eventInformation.eventId}/action`, {
       method: 'POST',
@@ -439,10 +501,13 @@ lightBtn.addEventListener("click", async function() {
     previousGuestIndex = data.current_guest;
   } catch (err) {
     console.error(err);
+  } finally {
+    setButtonLoading(lightBtn, false);
   }
 });
 
 skipBtn.addEventListener("click", async function() {
+  setButtonLoading(skipBtn, true);
   try {
     const response = await fetch(`/api/events/${eventInformation.eventId}/action`, {
       method: 'POST',
@@ -460,10 +525,13 @@ skipBtn.addEventListener("click", async function() {
     previousGuestIndex = data.current_guest;
   } catch (err) {
     console.error(err);
+  } finally {
+    setButtonLoading(skipBtn, false);
   }
 });
 
 backBtn.addEventListener("click", async function() {
+  setButtonLoading(backBtn, true);
   try {
     const response = await fetch(`/api/events/${eventInformation.eventId}/action`, {
       method: 'POST',
@@ -482,10 +550,13 @@ backBtn.addEventListener("click", async function() {
     previousGuestIndex = data.current_guest;
   } catch (err) {
     console.error(err);
+  } finally {
+    setButtonLoading(backBtn, false);
   }
 });
 
 startBtn.addEventListener("click", async function() {
+  setButtonLoading(startBtn, true);
   try {
     // Update isStart status in the database
     const response = await fetch(`/api/events/${eventInformation.eventId}/start`, {
@@ -502,13 +573,15 @@ startBtn.addEventListener("click", async function() {
     
     // Update local state
     setEventLampLights(0);
-    startOverlayPanel.style.display = "none";
+    animateOverlayTransition(startOverlayPanel, false);
     isEventStart = true;
     previousStartStatus = true;
     playSound();
     
   } catch (err) {
     console.error('Error starting event:', err);
+  } finally {
+    setButtonLoading(startBtn, false);
   }
 });
 
