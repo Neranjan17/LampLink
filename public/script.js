@@ -82,15 +82,15 @@ async function fetchEventInfo(inputValue) {
 }
 
 async function preloadEventAssets() {
-  let previousSigninBtnText = signinBtn.innerText;
-  signinBtn.innerText = "Loading...";
+  // let previousSigninBtnText = signinBtn.innerText;
+  // signinBtn.innerText = "Loading...";
 
-  for (let i = 0; i <= maximumSupportLightCount; i++) {
-    eventLampPicImg.src = `assets/OilLamp_${i}.gif`;
-    console.log("Load lamp " + i + " image");
-  }
-  
-  signinBtn.innerText = previousSigninBtnText;
+  // for (let i = 0; i <= maximumSupportLightCount; i++) {
+  //   eventLampPicImg.src = `assets/OilLamp_${i}.gif`;
+  //   console.log("Load lamp " + i + " image");
+  // }
+
+  // signinBtn.innerText = previousSigninBtnText;
 }
 
 
