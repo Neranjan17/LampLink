@@ -81,6 +81,19 @@ async function fetchEventInfo(inputValue) {
   }
 }
 
+async function preloadEventAssets() {
+  let previousSigninBtnText = signinBtn.innerText;
+  signinBtn.innerText = "Loading...";
+
+  for (let i = 0; i <= maximumSupportLightCount; i++) {
+    eventLampPicImg.src = `assets/OilLamp_${i}.gif`;
+    console.log("Load lamp " + i + " image");
+  }
+  
+  signinBtn.innerText = previousSigninBtnText;
+}
+
+
 signinBtn.addEventListener("click", async function() {
   let inputId = loginIdInput.value.trim();
   if (inputId.length == 8) {
@@ -90,6 +103,7 @@ signinBtn.addEventListener("click", async function() {
       if(data.exists) {
         console.log("Valid Event Id");
         const eventInfo = await fetchEventInfo(inputId);
+        preloadEventAssets();
         navigatEventSection(eventInfo);
       } else {
         alert("Invalid Event ID !");
@@ -105,6 +119,7 @@ signinBtn.addEventListener("click", async function() {
       if(data.exists) {
         console.log("Valid Password");
         const eventInfo = await fetchEventInfo(inputId);
+        preloadEventAssets();
         navigatEventSection(eventInfo);
       } else {
         alert("Invalid Event Password !");
