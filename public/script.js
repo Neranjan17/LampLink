@@ -81,7 +81,7 @@ async function fetchEventInfo(inputValue) {
   }
 }
 
-async function preloadEventAssets() {
+function preloadEventAssets() {
   let previousSigninBtnText = signinBtn.innerText;
   signinBtn.innerText = "Loading...";
 
