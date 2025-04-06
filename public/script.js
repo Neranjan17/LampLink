@@ -261,6 +261,7 @@ let guestIndex = 0; // local pointer for UI updates
 let previousLightCount = 0;
 let previousGuestIndex = 0;
 let previousStartStatus = false;
+const maximumSupportLightCount = 9;
 
 function navigatEventSection(eventInfo) {
   eventInformation = eventInfo;
@@ -394,7 +395,10 @@ function toggleSound() {
 }
 
 function setEventLampLights(lightCount) {
-  eventLampPicImg.src = `assets/OilLamp_${lightCount}.gif`;
+
+  if (lightCount <= maximumSupportLightCount) {
+    eventLampPicImg.src = `assets/OilLamp_${lightCount}.gif`;
+  }
 }
 
 function playSound() {
@@ -416,15 +420,17 @@ function updateGuestUI(index) {
     guestTitleSpan.innerText = eventInformation.guestsInfo[index].title;
     guestNameSpan.innerText = eventInformation.guestsInfo[index].name;
     guestIndex = index;
-  } else {
-    guestPicImg.src = "assets/default_guest_pic.svg";
-    guestTitleSpan.innerText = "";
-    guestNameSpan.innerText = "No more guests";
   }
 }
 
 // Action button handlers call the new API endpoint
 lightBtn.addEventListener("click", async function() {
+
+  if (previousLightCount == maximumSupportLightCount) {
+    alert("The event has come to an end");
+    return;
+  }
+
   try {
     const response = await fetch(`/api/events/${eventInformation.eventId}/action`, {
       method: 'POST',
